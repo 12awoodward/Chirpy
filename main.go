@@ -20,9 +20,9 @@ func main() {
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("/healthz", readinessEndpoint)
-	mux.HandleFunc("/metrics", apiCfg.metricsEndpoint)
-	mux.HandleFunc("/reset", apiCfg.resetMetricsEndpoint)
+	mux.HandleFunc("GET /healthz", readinessEndpoint)
+	mux.HandleFunc("GET /metrics", apiCfg.metricsEndpoint)
+	mux.HandleFunc("POST /reset", apiCfg.resetMetricsEndpoint)
 
 	err := server.ListenAndServe()
 	if err != nil {
