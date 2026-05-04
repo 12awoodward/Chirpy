@@ -37,7 +37,7 @@ func readinessEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func validateChripEndpoint(w http.ResponseWriter, r *http.Request) {
 	type validResponse struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 	type chirpBody struct {
 		Body string `json:"body"`
@@ -61,7 +61,7 @@ func validateChripEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 		
 	} else {
-		response := validResponse{Valid: true}
+		response := validResponse{CleanedBody: filterWords(chirp.Body)}
 		respondWithJSON(w, http.StatusOK, response)
 	}
 }
