@@ -4,16 +4,52 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/12awoodward/chirpy/internal/auth"
 	"github.com/12awoodward/chirpy/internal/database"
 	"github.com/google/uuid"
 )
 
-func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r * http.Request) {
-	type emailJSON struct {
+func (cfg *apiConfig) loginPostEndpoint(w http.ResponseWriter, r *http.Request) {
+	type loginUserJSON struct {
 		Email string `json:"email"`
+		Password string `json:"password"`
 	}
 
-	newUser := emailJSON{}
+	toLogin := loginUserJSON{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&toLogin)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	user, err := cfg.db.GetUser(r.Context(), toLogin.Email)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	canLogin, err := auth.CheckPasswordHash(toLogin.Password, user.HashedPassword)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	if !canLogin {
+		respondWithError(w, http.StatusUnauthorized, "Incorrect email or password")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, toJSONUser(user))
+}
+
+func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r *http.Request) {
+	type newUserJSON struct {
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	newUser := newUserJSON{}
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&newUser)
 	if err != nil {
@@ -21,21 +57,22 @@ func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r * http.Request)
 		return
 	}
 
-	user, err := cfg.db.CreateUser(r.Context(), newUser.Email)
+	hashedPassword, err := auth.HashPassword(newUser.Password)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to add user")
 		return
 	}
 
-	addedUser := User{
-		ID: user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email: user.Email,
+	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
+		Email: newUser.Email,
+		HashedPassword: hashedPassword,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to add user")
+		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, addedUser)
-
+	respondWithJSON(w, http.StatusCreated, toJSONUser(user))
 }
 
 func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -67,8 +104,7 @@ func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	addedChirp := toJSONChirp(chirp)
-	respondWithJSON(w, http.StatusCreated, addedChirp)
+	respondWithJSON(w, http.StatusCreated, toJSONChirp(chirp))
 }
 
 func (cfg *apiConfig) chirpsGetEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +136,5 @@ func (cfg *apiConfig) chirpsGetByIDEndpoint(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	foundChirp := toJSONChirp(chirp)
-	respondWithJSON(w, http.StatusOK, foundChirp)
+	respondWithJSON(w, http.StatusOK, toJSONChirp(chirp))
 }
