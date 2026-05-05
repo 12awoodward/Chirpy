@@ -21,7 +21,10 @@ func main() {
 	}
 	dbQueries := database.New(db)
 
-	apiCfg := apiConfig{db: dbQueries}
+	apiCfg := apiConfig{
+		db: dbQueries,
+		platform: os.Getenv("PLATFORM"),
+	}
 
 	mux := http.NewServeMux()
 	server := http.Server{
@@ -33,9 +36,10 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", readinessEndpoint)
 	mux.HandleFunc("POST /api/validate_chirp", validateChripEndpoint)
+	mux.HandleFunc("POST /api/users", apiCfg.usersEndpoint)
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsEndpoint)
-	mux.HandleFunc("POST /admin/reset", apiCfg.resetMetricsEndpoint)
+	mux.HandleFunc("POST /admin/reset", apiCfg.resetEndpoint)
 
 	err = server.ListenAndServe()
 	if err != nil {
@@ -61,21 +65,45 @@ func validateChripEndpoint(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&chirp)
 	if err != nil {
-		err = respondWithError(w, http.StatusBadRequest, "Request should be json including 'body' string")
-		if err != nil {
-			fmt.Println(err)
-		}
+		respondWithError(w, http.StatusBadRequest, "Request should be json including 'body' string")
 		return
 	}
 
 	if len(chirp.Body) > 140 {
-		err = respondWithError(w, http.StatusBadRequest, "Chirp is too long")
-		if err != nil {
-			fmt.Println(err)
-		}
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		
 	} else {
 		response := validResponse{CleanedBody: filterWords(chirp.Body)}
 		respondWithJSON(w, http.StatusOK, response)
 	}
+}
+
+func (cfg *apiConfig) usersEndpoint(w http.ResponseWriter, r * http.Request) {
+	type emailJSON struct {
+		Email string `json:"email"`
+	}
+
+	newUser := emailJSON{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&newUser)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "New user requires email.")
+		return
+	}
+
+	user, err := cfg.db.CreateUser(r.Context(), newUser.Email)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to add user.")
+		return
+	}
+
+	addedUser := User{
+		ID: user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email: user.Email,
+	}
+
+	respondWithJSON(w, http.StatusCreated, addedUser)
+
 }

@@ -11,6 +11,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db *database.Queries
+	platform string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -30,8 +31,18 @@ func (cfg *apiConfig) metricsEndpoint(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(hitCount))
 }
 
-func (cfg *apiConfig) resetMetricsEndpoint(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) resetEndpoint(w http.ResponseWriter, r *http.Request) {
+	if cfg.platform != "dev" {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("Forbidden"))
+		return
+	}
+
 	cfg.fileserverHits.Store(0)
+	err := cfg.db.DeleteUsers(r.Context())
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
