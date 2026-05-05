@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+// postgres://postgres:postgres@localhost:5432/chirpy
+
 func main() {
 	apiCfg := apiConfig{}
 
