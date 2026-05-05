@@ -1,15 +1,27 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+
+	"github.com/12awoodward/chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
-// postgres://postgres:postgres@localhost:5432/chirpy
-
 func main() {
-	apiCfg := apiConfig{}
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		fmt.Println(err)
+	}
+	dbQueries := database.New(db)
+
+	apiCfg := apiConfig{db: dbQueries}
 
 	mux := http.NewServeMux()
 	server := http.Server{
@@ -25,7 +37,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsEndpoint)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetMetricsEndpoint)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		fmt.Println(err)
 	}
