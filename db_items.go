@@ -3,6 +3,7 @@ package main
 import (
 	"time"
 
+	"github.com/12awoodward/chirpy/internal/database"
 	"github.com/google/uuid"
 )
 
@@ -20,4 +21,14 @@ type Chirp struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Body string `json:"body"`
 	UserID uuid.UUID `json:"user_id"`
+}
+
+func toJSONChirp(old database.Chirp) Chirp {
+	return Chirp{
+		ID: old.ID,
+		CreatedAt: old.CreatedAt,
+		UpdatedAt: old.UpdatedAt,
+		Body: old.Body,
+		UserID: old.UserID,
+	}
 }

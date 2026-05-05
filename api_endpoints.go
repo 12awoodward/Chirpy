@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (cfg *apiConfig) usersEndpoint(w http.ResponseWriter, r * http.Request) {
+func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r * http.Request) {
 	type emailJSON struct {
 		Email string `json:"email"`
 	}
@@ -38,7 +38,7 @@ func (cfg *apiConfig) usersEndpoint(w http.ResponseWriter, r * http.Request) {
 
 }
 
-func (cfg *apiConfig) chirpsEndpoint(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request) {
 	type newChirpJSON struct {
 		Body string `json:"body"`
 		UserID uuid.UUID `json:"user_id"`
@@ -67,12 +67,39 @@ func (cfg *apiConfig) chirpsEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	addedChirp := Chirp{
-		ID: chirp.ID,
-		CreatedAt: chirp.CreatedAt,
-		UpdatedAt: chirp.UpdatedAt,
-		Body: chirp.Body,
-		UserID: chirp.UserID,
-	}
+	addedChirp := toJSONChirp(chirp)
 	respondWithJSON(w, http.StatusCreated, addedChirp)
+}
+
+func (cfg *apiConfig) chirpsGetEndpoint(w http.ResponseWriter, r *http.Request) {
+	chirps, err := cfg.db.GetChirps(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to get chirps")
+		return
+	}
+
+	chirps_response := make([]Chirp, len(chirps))
+	for i, chirp := range chirps {
+		chirps_response[i] = toJSONChirp(chirp)
+	}
+
+	respondWithJSON(w, http.StatusOK, chirps_response)
+}
+
+func (cfg *apiConfig) chirpsGetByIDEndpoint(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("chirpID")
+	uuid, err := uuid.Parse(idStr)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+	
+	chirp, err := cfg.db.GetChirp(r.Context(), uuid)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	foundChirp := toJSONChirp(chirp)
+	respondWithJSON(w, http.StatusOK, foundChirp)
 }
