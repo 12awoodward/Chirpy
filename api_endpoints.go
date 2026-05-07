@@ -222,6 +222,46 @@ func (cfg *apiConfig) chirpsGetByIDEndpoint(w http.ResponseWriter, r *http.Reque
 	respondWithJSON(w, http.StatusOK, toJSONChirp(chirp))
 }
 
+func (cfg *apiConfig) chirpsDeleteByIDEndpoint(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	idStr := r.PathValue("chirpID")
+	uuid, err := uuid.Parse(idStr)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+	
+	chirp, err := cfg.db.GetChirp(r.Context(), uuid)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Not Found")
+		return
+	}
+
+	if chirp.UserID != userID {
+		respondWithError(w, http.StatusForbidden, "Forbidden")
+		return
+	}
+
+	err = cfg.db.DeleteChirp(r.Context(), chirp.ID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Failed to delete")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (cfg *apiConfig) refreshPostEndpoint(w http.ResponseWriter, r *http.Request) {
 	refresh_token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
