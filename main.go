@@ -15,6 +15,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db *database.Queries
+	secret string
 	platform string
 }
 
@@ -38,6 +39,7 @@ func main() {
 
 	apiCfg := apiConfig{
 		db: dbQueries,
+		secret: os.Getenv("SECRET"),
 		platform: os.Getenv("PLATFORM"),
 	}
 

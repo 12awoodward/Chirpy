@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/12awoodward/chirpy/internal/auth"
 	"github.com/12awoodward/chirpy/internal/database"
@@ -13,6 +14,7 @@ func (cfg *apiConfig) loginPostEndpoint(w http.ResponseWriter, r *http.Request) 
 	type loginUserJSON struct {
 		Email string `json:"email"`
 		Password string `json:"password"`
+		ExpiresInSeconds int `json:"expires_in_seconds"`
 	}
 
 	toLogin := loginUserJSON{}
@@ -40,7 +42,29 @@ func (cfg *apiConfig) loginPostEndpoint(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, toJSONUser(user))
+	expires := time.Hour
+	if toLogin.ExpiresInSeconds != 0 {
+		newExpiry := time.Second * time.Duration(toLogin.ExpiresInSeconds)
+		if newExpiry < expires {
+			expires = newExpiry
+		}
+	}
+
+	token, err := auth.MakeJWT(user.ID, cfg.secret, expires)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Unable to generate auth token")
+		return
+	}
+
+	type userResponse struct {
+		User
+		Token string `json:"token"`
+	}
+
+	respondWithJSON(w, http.StatusOK, userResponse{
+		toJSONUser(user),
+		token,
+	})
 }
 
 func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -76,16 +100,27 @@ func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
 	type newChirpJSON struct {
 		Body string `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
 	}
 
 	newChirp := newChirpJSON{}
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&newChirp)
+	err = decoder.Decode(&newChirp)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Expected chirp body and user id")
+		respondWithError(w, http.StatusBadRequest, "Expected chirp body")
 		return
 	}
 
@@ -97,7 +132,7 @@ func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request)
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body: filterWords(newChirp.Body),
-		UserID: newChirp.UserID,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to add Chirp")
