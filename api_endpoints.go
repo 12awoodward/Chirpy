@@ -102,6 +102,51 @@ func (cfg *apiConfig) usersPostEndpoint(w http.ResponseWriter, r *http.Request) 
 	respondWithJSON(w, http.StatusCreated, toJSONUser(user))
 }
 
+func (cfg *apiConfig) usersPutEndpoint(w http.ResponseWriter, r * http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
+	type newDetailsJSON struct {
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	newDetails := newDetailsJSON{}
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&newDetails)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid email or password")
+		return
+	}
+
+	passwordHash, err := auth.HashPassword(newDetails.Password)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid email or password")
+		return
+	}
+
+	user, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID: userID,
+		Email: newDetails.Email,
+		HashedPassword: passwordHash,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to update user")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, toJSONUser(user))
+}
+
 func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request) {
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
