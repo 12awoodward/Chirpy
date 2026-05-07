@@ -15,5 +15,10 @@ SET updated_at = NOW(), email = $2, hashed_password = $3
 WHERE id = $1
 RETURNING *;
 
+-- name: SetUserIsChirpyRed :exec
+UPDATE users
+SET updated_at = NOW(), is_chirpy_red = $2
+WHERE id = $1;
+
 -- name: DeleteUsers :exec
 DELETE FROM users;

@@ -65,6 +65,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.chirpsGetByIDEndpoint)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.chirpsDeleteByIDEndpoint)
 
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.polkaPostEndpoint)
+
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsEndpoint)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetEndpoint)
 

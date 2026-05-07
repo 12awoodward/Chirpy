@@ -303,3 +303,36 @@ func (cfg *apiConfig) revokePostEndpoint(w http.ResponseWriter, r *http.Request)
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (cfg *apiConfig) polkaPostEndpoint(w http.ResponseWriter, r *http.Request) {
+	type polkaEvent struct {
+		Event string `json:"event"`
+		Data struct{
+			UserID uuid.UUID `json:"user_id"`
+		} `json:"data"`
+	}
+
+	event := polkaEvent{}
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&event)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "")
+		return
+	}
+
+	if event.Event != "user.upgraded" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	err = cfg.db.SetUserIsChirpyRed(r.Context(), database.SetUserIsChirpyRedParams{
+		ID: event.Data.UserID,
+		IsChirpyRed: true,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
