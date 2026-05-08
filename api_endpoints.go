@@ -199,8 +199,24 @@ func (cfg *apiConfig) chirpsGetEndpoint(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	reverse := false
+	sortQuery := r.URL.Query().Get("sort")
+
+	if len(sortQuery) != 0 {
+		if sortQuery == "desc" {
+			reverse = true
+
+		} else if sortQuery != "asc" {
+			respondWithError(w, http.StatusBadRequest, "Invalid sort")
+			return
+		}
+	}
+
 	chirps_response := make([]Chirp, len(chirps))
 	for i, chirp := range chirps {
+		if reverse {
+			i = len(chirps) - (i + 1)
+		}
 		chirps_response[i] = toJSONChirp(chirp)
 	}
 
