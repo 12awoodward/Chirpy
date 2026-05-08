@@ -191,7 +191,9 @@ func (cfg *apiConfig) chirpsPostEndpoint(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) chirpsGetEndpoint(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetChirps(r.Context())
+	authorQuery := r.URL.Query().Get("author_id")
+
+	chirps, err := getChirpSlice(cfg, r.Context(), authorQuery)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to get chirps")
 		return
