@@ -305,6 +305,17 @@ func (cfg *apiConfig) revokePostEndpoint(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *apiConfig) polkaPostEndpoint(w http.ResponseWriter, r *http.Request) {
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "")
+		return
+	}
+
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "")
+		return
+	}
+
 	type polkaEvent struct {
 		Event string `json:"event"`
 		Data struct{
@@ -314,7 +325,7 @@ func (cfg *apiConfig) polkaPostEndpoint(w http.ResponseWriter, r *http.Request) 
 
 	event := polkaEvent{}
 	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&event)
+	err = decoder.Decode(&event)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "")
 		return

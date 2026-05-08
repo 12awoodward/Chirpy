@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db *database.Queries
 	secret string
+	polkaKey string
 	platform string
 }
 
@@ -40,6 +41,7 @@ func main() {
 	apiCfg := apiConfig{
 		db: dbQueries,
 		secret: os.Getenv("SECRET"),
+		polkaKey: os.Getenv("POLKA_KEY"),
 		platform: os.Getenv("PLATFORM"),
 	}
 
